@@ -4,11 +4,12 @@ data class Figure(
     val name: String,
     val team: String,
     var position: Position,
+    val id: Int = 0
 )
 
 data class Position(
-    val x: Int,
-    val y: Int
+    var x: Int,
+    var y: Int
 )
 
 data class Coordinates(
