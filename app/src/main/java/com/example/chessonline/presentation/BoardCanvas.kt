@@ -27,7 +27,7 @@ import kotlin.math.sign
 class BoardCanvas(context: Context?): View(context) {
     private lateinit var boardCoords: Pair<Coordinates, Coordinates>
     private var cellSize: Float = 10F
-    private var team = WHITE_TEAM
+    private var team = BLACK_TEAM
     private var position = Position(1, 2)
     var figures = getStartFigures(team)
     var chosenPos: Position = Position(-1, -1)
@@ -42,15 +42,21 @@ class BoardCanvas(context: Context?): View(context) {
         drawBoardGrid(canvas)
 
         for (fig in figures) drawFigure(fig, canvas)
-
     }
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent?): Boolean {
-        Log.d(TAG, getPosition(Coordinates(event!!.x, event.y)).toString())
-        position = getPosition(Coordinates(event.x, event.y))
-        Log.d(TAG, "ChosenPos: $chosenPos")
+        if (team == WHITE_TEAM) {
+        position = getPosition(Coordinates(event!!.x, event.y))
+        Log.d(TAG, position.toString())
+        } else {
+            position = getPosition(Coordinates(event!!.x, event.y))
+            position.x = 9 - position.x
+            position.y = 9 - position.y
+            Log.d(TAG, position.toString())
+        }
 
+        Log.d(TAG, "ChosenPos: $chosenPos")
         if (chosenPos == Position(-1, -1) && getIndexFigureOnPos(position) != null) {
             chosenPos = position
             invalidate()
@@ -99,12 +105,16 @@ class BoardCanvas(context: Context?): View(context) {
         }
         if (chosenPos != Position(-1, -1)) {
             val possibleMoves = getPossibleMoves(figures[getIndexFigureOnPos(chosenPos)!!])
-            drawColoredCell(chosenPos, "#CCFFFF", canvas)
+            if (team == BLACK_TEAM)
+                drawColoredCell(Position(9 - chosenPos.x, 9 - chosenPos.y), "#CCFFFF", canvas)
+            else drawColoredCell(chosenPos, "#CCFFFF", canvas)
             for (move in possibleMoves) {
-                drawColoredCell(move.first, move.second, canvas)
+                if (team == BLACK_TEAM)
+                    drawColoredCell(Position(9 - move.first.x, 9 - move.first.y), move.second, canvas)
+                else drawColoredCell(move.first, move.second, canvas)
             }
         }
-        Log.d(TAG, "Done drawing board!")
+//        Log.d(TAG, "Done drawing board!")
     }
 
     private fun drawColoredCell(position: Position, hexColor: String, canvas: Canvas) {
@@ -121,30 +131,27 @@ class BoardCanvas(context: Context?): View(context) {
 
     fun getStartFigures(team: String): MutableList<Figure> {
         val figures = mutableListOf<Figure>()
-        val enemyTeam = if (team == WHITE_TEAM) {
-            BLACK_TEAM
-        } else WHITE_TEAM
         var id = 1
 
-        for (x in 1..8) figures.add(Figure(PAWN_NAME, team, Position(x,2), id++))
-        figures.add(Figure(ROOK_NAME, team, Position(1, 1), id++))
-        figures.add(Figure(ROOK_NAME, team, Position(8, 1), id++))
-        figures.add(Figure(HORSE_NAME, team, Position(2, 1), id++))
-        figures.add(Figure(HORSE_NAME, team, Position(7, 1), id++))
-        figures.add(Figure(BISHOP_NAME, team, Position(3, 1), id++))
-        figures.add(Figure(BISHOP_NAME, team, Position(6, 1), id++))
-        figures.add(Figure(QUEEN_NAME, team, Position(4, 1), id++))
-        figures.add(Figure(KING_NAME, team, Position(5, 1), id++))
+        for (x in 1..8) figures.add(Figure(PAWN_NAME, WHITE_TEAM, Position(x,2), id++))
+        figures.add(Figure(ROOK_NAME, WHITE_TEAM, Position(1, 1), id++))
+        figures.add(Figure(ROOK_NAME, WHITE_TEAM, Position(8, 1), id++))
+        figures.add(Figure(HORSE_NAME, WHITE_TEAM, Position(2, 1), id++))
+        figures.add(Figure(HORSE_NAME, WHITE_TEAM, Position(7, 1), id++))
+        figures.add(Figure(BISHOP_NAME, WHITE_TEAM, Position(3, 1), id++))
+        figures.add(Figure(BISHOP_NAME, WHITE_TEAM, Position(6, 1), id++))
+        figures.add(Figure(QUEEN_NAME, WHITE_TEAM, Position(4, 1), id++))
+        figures.add(Figure(KING_NAME, WHITE_TEAM, Position(5, 1), id++))
 
-        for (x in 1..8) figures.add(Figure(PAWN_NAME, enemyTeam, Position(x,7), id++))
-        figures.add(Figure(ROOK_NAME, enemyTeam, Position(1, 8), id++))
-        figures.add(Figure(ROOK_NAME, enemyTeam, Position(8, 8), id++))
-        figures.add(Figure(HORSE_NAME, enemyTeam, Position(2, 8), id++))
-        figures.add(Figure(HORSE_NAME, enemyTeam, Position(7, 8), id++))
-        figures.add(Figure(BISHOP_NAME, enemyTeam, Position(3, 8), id++))
-        figures.add(Figure(BISHOP_NAME, enemyTeam, Position(6, 8), id++))
-        figures.add(Figure(QUEEN_NAME, enemyTeam, Position(4, 8), id++))
-        figures.add(Figure(KING_NAME, enemyTeam, Position(5, 8), id))
+        for (x in 1..8) figures.add(Figure(PAWN_NAME, BLACK_TEAM, Position(x,7), id++))
+        figures.add(Figure(ROOK_NAME, BLACK_TEAM, Position(1, 8), id++))
+        figures.add(Figure(ROOK_NAME, BLACK_TEAM, Position(8, 8), id++))
+        figures.add(Figure(HORSE_NAME, BLACK_TEAM, Position(2, 8), id++))
+        figures.add(Figure(HORSE_NAME, BLACK_TEAM, Position(7, 8), id++))
+        figures.add(Figure(BISHOP_NAME, BLACK_TEAM, Position(3, 8), id++))
+        figures.add(Figure(BISHOP_NAME, BLACK_TEAM, Position(6, 8), id++))
+        figures.add(Figure(QUEEN_NAME, BLACK_TEAM, Position(4, 8), id++))
+        figures.add(Figure(KING_NAME, BLACK_TEAM, Position(5, 8), id))
 
         return figures
     }
@@ -155,11 +162,13 @@ class BoardCanvas(context: Context?): View(context) {
 
         val bitmap = BitmapFactory.decodeResource(resources, resId)
         val drawable = BitmapDrawable(resources, bitmap)
-        val coordiantes: Coordinates = getCoordinates(figure.position)
+        var pos = figure.position
+        if (team == BLACK_TEAM) pos = Position(9 - figure.position.x,  9 - figure.position.y)
+        val coordiantes: Coordinates = getCoordinates(pos)
         drawable.setBounds((coordiantes.x).toInt(), (coordiantes.y).toInt(),
             (coordiantes.x+cellSize).toInt(), (coordiantes.y+cellSize).toInt())
         drawable.draw(canvas)
-        Log.d(TAG, "Done drawing ${figure.team}_${figure.name}!")
+//        Log.d(TAG, "Done drawing ${figure.team}_${figure.name}!")
     }
 
     fun canFigureGo(figure: Figure, pos: Position): Boolean {
@@ -285,7 +294,7 @@ class BoardCanvas(context: Context?): View(context) {
         when (figure.name) {
             PAWN_NAME -> {
                 if (figure.team == WHITE_TEAM) {
-                    if (getIndexFigureOnPos(Position(x, y+1)) == null) moves.add(Pair(Position(x, y+1), moveColor))
+                    if (getIndexFigureOnPos(Position(x, y+1)) == null && y<=7) moves.add(Pair(Position(x, y+1), moveColor))
                     if (getIndexFigureOnPos(Position(x, y+1)) == null &&
                         getIndexFigureOnPos(Position(x, y+2)) == null &&
                         figure.position.y == 2) moves.add(Pair(Position(x, y+2), moveColor))
@@ -298,7 +307,7 @@ class BoardCanvas(context: Context?): View(context) {
                             moves.add(Pair(Position(x-1, y+1), attackColor))
                 }
                 if (figure.team == BLACK_TEAM) {
-                    if (getIndexFigureOnPos(Position(x, y-1)) == null) moves.add(Pair(Position(x, y-1), moveColor))
+                    if (getIndexFigureOnPos(Position(x, y-1)) == null && y>=2) moves.add(Pair(Position(x, y-1), moveColor))
                     if (getIndexFigureOnPos(Position(x, y-1)) == null &&
                         getIndexFigureOnPos(Position(x, y-2)) == null &&
                         figure.position.y == 7) moves.add(Pair(Position(x, y-2), moveColor))
