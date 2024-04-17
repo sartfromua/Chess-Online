@@ -10,6 +10,10 @@ import android.graphics.drawable.BitmapDrawable
 import android.util.Log
 import android.view.MotionEvent
 import android.view.View
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MediatorLiveData
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.liveData
 import com.example.chessonline.BISHOP_NAME
 import com.example.chessonline.BLACK_TEAM
 import com.example.chessonline.Figure
@@ -27,11 +31,12 @@ import kotlin.math.sign
 class BoardCanvas(context: Context?): View(context) {
     private lateinit var boardCoords: Pair<Coordinates, Coordinates>
     private var cellSize: Float = 10F
-    private var team = BLACK_TEAM
-    private var position = Position(1, 2)
-    var figures = getStartFigures(team)
-    var chosenPos: Position = Position(-1, -1)
-
+    var team = "NO_TEAM"
+    private var position = Position(-1, -1)
+    var figures = mutableListOf<Figure>()
+    private var chosenPos: Position = Position(-1, -1)
+    var move: MutableLiveData<Pair<Position, Position>> = MediatorLiveData()
+    var gameRestartButton: Boolean = false
 
     @SuppressLint("DrawAllocation")
     override fun onDraw(canvas: Canvas) {
@@ -40,12 +45,16 @@ class BoardCanvas(context: Context?): View(context) {
         cellSize = BoardData.getCellSize(width)
 
         drawBoardGrid(canvas)
+        drawRestartButton(canvas)
 
         for (fig in figures) drawFigure(fig, canvas)
     }
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent?): Boolean {
+
+
+
         if (team == WHITE_TEAM) {
         position = getPosition(Coordinates(event!!.x, event.y))
         Log.d(TAG, position.toString())
@@ -61,18 +70,10 @@ class BoardCanvas(context: Context?): View(context) {
             chosenPos = position
             invalidate()
         } else {
-            val indChosen = getIndexFigureOnPos(chosenPos)
-            val indPos = getIndexFigureOnPos(position)
+            // Making move
+            move.value = Pair(chosenPos, position)
 
-            if (indChosen != null && canFigureGo(figures[indChosen], position)) {
-                Log.d("XXXX", "Move ${figures[indChosen]} to $position")
-                figures[indChosen].position = position
-                if (indPos != null)
-                    figures.removeAt(indPos)
-                invalidate() // Обновление canvas
-            }
             chosenPos = Position(-1, -1)
-
         }
         if (getIndexFigureOnPos(position) == null) {
             chosenPos = Position(-1, -1)
@@ -82,7 +83,7 @@ class BoardCanvas(context: Context?): View(context) {
         return super.onTouchEvent(event)
     }
 
-    private fun getIndexFigureOnPos(position: Position): Int? {
+    fun getIndexFigureOnPos(position: Position): Int? {
         for (fig in figures) {
             if (fig.position == position) {
 //                Log.d("XXXXX", "Figure on $position: ${figures[figures.indexOf(fig)]}")
@@ -90,6 +91,23 @@ class BoardCanvas(context: Context?): View(context) {
             }
         }
         return null
+    }
+
+    fun drawRestartButton(canvas: Canvas) {
+        val paint = Paint()
+        paint.color = Color.parseColor("#ffffcc")
+        paint.style = Paint.Style.FILL
+        val s = "cordinate"
+        val buttonCords = BoardData.getRestartButtonCoordinates(width, height)
+        val coords1 = buttonCords.first
+        val coords2 = buttonCords.second
+        canvas.drawRect(coords1.x, coords1.y, coords2.x, coords2.y, paint)
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 3F
+        paint.color = Color.BLACK
+        canvas.drawRect(coords1.x, coords1.y, coords2.x, coords2.y, paint)
+
+        // TODO: print "New Game" on button
     }
 
     private fun drawBoardGrid(canvas: Canvas) {
@@ -129,32 +147,7 @@ class BoardCanvas(context: Context?): View(context) {
         canvas.drawRect(coords.x, coords.y, coords.x+cellSize, coords.y+cellSize, paint)
     }
 
-    fun getStartFigures(team: String): MutableList<Figure> {
-        val figures = mutableListOf<Figure>()
-        var id = 1
 
-        for (x in 1..8) figures.add(Figure(PAWN_NAME, WHITE_TEAM, Position(x,2), id++))
-        figures.add(Figure(ROOK_NAME, WHITE_TEAM, Position(1, 1), id++))
-        figures.add(Figure(ROOK_NAME, WHITE_TEAM, Position(8, 1), id++))
-        figures.add(Figure(HORSE_NAME, WHITE_TEAM, Position(2, 1), id++))
-        figures.add(Figure(HORSE_NAME, WHITE_TEAM, Position(7, 1), id++))
-        figures.add(Figure(BISHOP_NAME, WHITE_TEAM, Position(3, 1), id++))
-        figures.add(Figure(BISHOP_NAME, WHITE_TEAM, Position(6, 1), id++))
-        figures.add(Figure(QUEEN_NAME, WHITE_TEAM, Position(4, 1), id++))
-        figures.add(Figure(KING_NAME, WHITE_TEAM, Position(5, 1), id++))
-
-        for (x in 1..8) figures.add(Figure(PAWN_NAME, BLACK_TEAM, Position(x,7), id++))
-        figures.add(Figure(ROOK_NAME, BLACK_TEAM, Position(1, 8), id++))
-        figures.add(Figure(ROOK_NAME, BLACK_TEAM, Position(8, 8), id++))
-        figures.add(Figure(HORSE_NAME, BLACK_TEAM, Position(2, 8), id++))
-        figures.add(Figure(HORSE_NAME, BLACK_TEAM, Position(7, 8), id++))
-        figures.add(Figure(BISHOP_NAME, BLACK_TEAM, Position(3, 8), id++))
-        figures.add(Figure(BISHOP_NAME, BLACK_TEAM, Position(6, 8), id++))
-        figures.add(Figure(QUEEN_NAME, BLACK_TEAM, Position(4, 8), id++))
-        figures.add(Figure(KING_NAME, BLACK_TEAM, Position(5, 8), id))
-
-        return figures
-    }
 
     @SuppressLint("DiscouragedApi")
     fun drawFigure(figure: Figure, canvas: Canvas) {
@@ -282,7 +275,7 @@ class BoardCanvas(context: Context?): View(context) {
         return false
     }
 
-    fun getPossibleMoves(figure: Figure): MutableList<Pair<Position, String>> {
+    private fun getPossibleMoves(figure: Figure): MutableList<Pair<Position, String>> {
         val moves = mutableListOf<Pair<Position, String>>()
         val moveColor = "#99FF00"
         val attackColor = "#FF3333"
@@ -518,11 +511,11 @@ class BoardCanvas(context: Context?): View(context) {
         return moves
     }
 
-    private fun getCoordinates(position: Position): Coordinates {
+    fun getCoordinates(position: Position): Coordinates {
         return Coordinates(boardCoords.first.x+((position.x-1)*cellSize), boardCoords.first.y+((8-position.y)*cellSize))
     }
 
-    private fun getPosition(coordinates: Coordinates): Position {
+    fun getPosition(coordinates: Coordinates): Position {
         return if (boardCoords.first.x < coordinates.x && coordinates.x < boardCoords.second.x &&
             boardCoords.first.y < coordinates.y && coordinates.y < boardCoords.second.y)
             Position(1+((coordinates.x-boardCoords.first.x)/cellSize).toInt(),

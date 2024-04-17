@@ -16,13 +16,13 @@ interface FigureDao {
     @Update
     suspend fun updateFigure(figure: FigureEntity)
 
-    @Query("DELETE FROM figure_table WHERE x==:x & y==:y")
+    @Query("DELETE FROM figure_table WHERE x==:x AND y==:y")
     suspend fun removeFigure(x: Int, y: Int)
 
     @Query("SELECT * FROM figure_table")
     suspend fun getFiguresList(): List<FigureEntity>
 
-    @Query("SELECT * FROM figure_table WHERE x==:x & y==:y")
+    @Query("SELECT * FROM figure_table WHERE x==:x AND y==:y LIMIT 1")
     suspend fun getFigureOnPosition(x: Int, y: Int): FigureEntity
 
 

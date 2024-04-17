@@ -1,6 +1,7 @@
 package com.example.chessonline.presentation
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -22,13 +23,13 @@ class FiguresViewModel(application: Application): AndroidViewModel(application) 
     private val moveFigureToUseCase = MoveFigureTo(repository)
     private val removeFigureUseCase = RemoveFigure(repository)
 
-    var _figuresListLD = MutableLiveData<List<Figure>>()
+    private var _figuresListLD = MutableLiveData<List<Figure>>()
     val figuresListLD: LiveData<List<Figure>>
         get() = _figuresListLD
 
     fun getFiguresList() {
         viewModelScope.launch {
-            _figuresListLD = getFiguresListUseCase.getFiguresList() as MutableLiveData<List<Figure>>
+            _figuresListLD.value = getFiguresListUseCase.getFiguresList().value
         }
     }
 
@@ -41,12 +42,20 @@ class FiguresViewModel(application: Application): AndroidViewModel(application) 
     fun moveFigureTo(fromPosition: Position, toPosition: Position) {
         viewModelScope.launch {
             moveFigureToUseCase.moveFigureTo(fromPosition, toPosition)
+        }.invokeOnCompletion {
+            getFiguresList()
         }
     }
 
     fun removeFigure(position: Position) {
         viewModelScope.launch {
             removeFigureUseCase.removeFigure(position)
+        }
+    }
+
+    fun addFiguresList(figures: List<Figure>) {
+        for (fig in figures) {
+            addFigure(fig)
         }
     }
 }

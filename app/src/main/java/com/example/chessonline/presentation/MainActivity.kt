@@ -2,16 +2,19 @@ package com.example.chessonline.presentation
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Log
 import androidx.lifecycle.ViewModelProvider
-import com.example.chessonline.BLACK_TEAM
+import com.example.chessonline.Figure
 import com.example.chessonline.Position
-import com.example.chessonline.databinding.ActivityMainBinding
+import com.example.chessonline.WHITE_TEAM
 import okhttp3.OkHttpClient
 
 class MainActivity : AppCompatActivity() {
 //    private lateinit var binding: ActivityMainBinding
     private lateinit var board: BoardCanvas
     private lateinit var viewModel: FiguresViewModel
+    private var team = WHITE_TEAM
+    private var figures: MutableList<Figure> = mutableListOf()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -20,7 +23,33 @@ class MainActivity : AppCompatActivity() {
         setContentView(board)
         viewModel = ViewModelProvider(this)[FiguresViewModel::class.java]
 
+        // Adding start figures
+//        viewModel.addFiguresList(BoardData.getStartFigures(team))
 
+
+        // refreshing figures on board
+        viewModel.figuresListLD.observe(this) {
+//            Log.d("XXXXX", "Figures list: \n$it")
+            figures = it.toMutableList()
+            board.figures = it.toMutableList()
+            board.team = team
+            board.invalidate()
+        }
+
+        viewModel.getFiguresList()
+
+        board.move.observe(this) {
+            val chosenPos = it.first
+            val position = it.second
+
+            val indChosen = board.getIndexFigureOnPos(chosenPos)
+
+            if (indChosen != null && board.canFigureGo(figures[indChosen], position)) {
+                Log.d("XXXX", "Move ${figures[indChosen]} to $position")
+                // Moving figure and deleting figure on pos if needed
+                viewModel.moveFigureTo(chosenPos, position)
+            }
+        }
     }
 
     private fun webSocket() {
