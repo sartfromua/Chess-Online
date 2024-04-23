@@ -16,3 +16,10 @@ data class Coordinates(
     val x: Float,
     val y: Float
 )
+
+data class Game(
+    var started: Boolean,
+    var team: String,
+    var turn: String,
+    var channel: Int = 1
+)

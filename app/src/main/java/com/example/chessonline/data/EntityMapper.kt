@@ -23,4 +23,8 @@ object EntityMapper {
     fun entitiesToFigureList(entities: List<FigureEntity>): List<Figure> {
         return entities.map { entityToFigure(it) }
     }
+
+    fun figuresToEntities(figures: List<Figure>): List<FigureEntity> {
+        return figures.map { figureToEntity(it) }
+    }
 }

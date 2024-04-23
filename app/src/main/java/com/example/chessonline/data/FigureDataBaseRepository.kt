@@ -42,9 +42,13 @@ class FigureDataBaseRepository(context: Context): FigureRepository {
         dao.removeFigure(position.x, position.y)
     }
 
-
-    private fun figureCanGo(figure: FigureEntity, toPos: Position): Boolean {
-        return true
+    override suspend fun removeAllFigures() {
+        dao.removeAllFigures()
     }
+
+    override suspend fun addFiguresList(figures: List<Figure>) {
+        dao.addFiguresList(EntityMapper.figuresToEntities(figures))
+    }
+
 
 }

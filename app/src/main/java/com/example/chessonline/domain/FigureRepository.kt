@@ -9,4 +9,6 @@ interface FigureRepository {
     suspend fun addFigure(figure: Figure)
     suspend fun getFiguresList(): LiveData<List<Figure>>
     suspend fun removeFigure(position: Position)
+    suspend fun removeAllFigures()
+    suspend fun addFiguresList(figures: List<Figure>)
 }

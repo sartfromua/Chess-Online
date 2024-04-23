@@ -32,11 +32,12 @@ class BoardCanvas(context: Context?): View(context) {
     private lateinit var boardCoords: Pair<Coordinates, Coordinates>
     private var cellSize: Float = 10F
     var team = "NO_TEAM"
+    var turn = WHITE_TEAM
     private var position = Position(-1, -1)
     var figures = mutableListOf<Figure>()
     private var chosenPos: Position = Position(-1, -1)
-    var move: MutableLiveData<Pair<Position, Position>> = MediatorLiveData()
-    var gameRestartButton: Boolean = false
+    val move: MutableLiveData<Pair<Position, Position>> = MediatorLiveData()
+    var gameRestartButton: MutableLiveData<Boolean?> = MediatorLiveData()
 
     @SuppressLint("DrawAllocation")
     override fun onDraw(canvas: Canvas) {
@@ -46,20 +47,23 @@ class BoardCanvas(context: Context?): View(context) {
 
         drawBoardGrid(canvas)
         drawRestartButton(canvas)
+        drawFigures(canvas)
 
-        for (fig in figures) drawFigure(fig, canvas)
     }
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent?): Boolean {
-
+        val restartButt = BoardData.getRestartButtonCoordinates(width, height)
+        if (event!!.x in restartButt.first.x..restartButt.second.x &&
+            event.y in restartButt.first.y..restartButt.second.y)
+            gameRestartButton.value = (gameRestartButton.value ?: true).xor(true)
 
 
         if (team == WHITE_TEAM) {
-        position = getPosition(Coordinates(event!!.x, event.y))
+        position = getPosition(Coordinates(event.x, event.y))
         Log.d(TAG, position.toString())
         } else {
-            position = getPosition(Coordinates(event!!.x, event.y))
+            position = getPosition(Coordinates(event.x, event.y))
             position.x = 9 - position.x
             position.y = 9 - position.y
             Log.d(TAG, position.toString())
@@ -94,18 +98,16 @@ class BoardCanvas(context: Context?): View(context) {
     }
 
     fun drawRestartButton(canvas: Canvas) {
-        val paint = Paint()
-        paint.color = Color.parseColor("#ffffcc")
-        paint.style = Paint.Style.FILL
-        val s = "cordinate"
         val buttonCords = BoardData.getRestartButtonCoordinates(width, height)
         val coords1 = buttonCords.first
         val coords2 = buttonCords.second
-        canvas.drawRect(coords1.x, coords1.y, coords2.x, coords2.y, paint)
-        paint.style = Paint.Style.STROKE
-        paint.strokeWidth = 3F
-        paint.color = Color.BLACK
-        canvas.drawRect(coords1.x, coords1.y, coords2.x, coords2.y, paint)
+
+        val resId = context.resources.getIdentifier("restart_button", "drawable", context.packageName)
+        val bitmap = BitmapFactory.decodeResource(resources, resId)
+        val drawable = BitmapDrawable(resources, bitmap)
+        drawable.setBounds((coords1.x).toInt(), (coords1.y).toInt(),
+            (coords2.x).toInt(), (coords2.y).toInt())
+        drawable.draw(canvas)
 
         // TODO: print "New Game" on button
     }
@@ -121,7 +123,9 @@ class BoardCanvas(context: Context?): View(context) {
             canvas.drawLine(boardStart.x+i*cellSize, boardStart.y, boardStart.x+i*cellSize, boardEnd.y, paint)
             canvas.drawLine(boardStart.x, boardStart.y+i*cellSize, boardEnd.x, boardStart.y+i*cellSize, paint)
         }
-        if (chosenPos != Position(-1, -1)) {
+        if (chosenPos != Position(-1, -1) &&
+            turn == figures[getIndexFigureOnPos(chosenPos)!!].team) {
+            if (turn != team) return
             val possibleMoves = getPossibleMoves(figures[getIndexFigureOnPos(chosenPos)!!])
             if (team == BLACK_TEAM)
                 drawColoredCell(Position(9 - chosenPos.x, 9 - chosenPos.y), "#CCFFFF", canvas)
@@ -133,6 +137,10 @@ class BoardCanvas(context: Context?): View(context) {
             }
         }
 //        Log.d(TAG, "Done drawing board!")
+    }
+
+    private fun drawFigures(canvas: Canvas) {
+        for (fig in figures) drawFigure(fig, canvas)
     }
 
     private fun drawColoredCell(position: Position, hexColor: String, canvas: Canvas) {
@@ -165,6 +173,7 @@ class BoardCanvas(context: Context?): View(context) {
     }
 
     fun canFigureGo(figure: Figure, pos: Position): Boolean {
+        if (figure.team != team || turn != team) return false
         Log.d("XXXX", "CanFigureGo: $figure to $pos")
 
         val index = getIndexFigureOnPos(pos)
@@ -175,6 +184,7 @@ class BoardCanvas(context: Context?): View(context) {
                 Log.d("XXXX", "same teams! WRONG move")
                 return false
             }
+
 
         when (figure.name) {
             PAWN_NAME -> {

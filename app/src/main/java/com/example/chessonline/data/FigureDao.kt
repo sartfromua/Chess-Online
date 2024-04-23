@@ -13,11 +13,17 @@ interface FigureDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun addFigure(figure: FigureEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun addFiguresList(figures: List<FigureEntity>)
+
     @Update
     suspend fun updateFigure(figure: FigureEntity)
 
     @Query("DELETE FROM figure_table WHERE x==:x AND y==:y")
     suspend fun removeFigure(x: Int, y: Int)
+
+    @Query("DELETE FROM figure_table")
+    suspend fun removeAllFigures()
 
     @Query("SELECT * FROM figure_table")
     suspend fun getFiguresList(): List<FigureEntity>
