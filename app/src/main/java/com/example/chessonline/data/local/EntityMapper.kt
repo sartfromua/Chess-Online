@@ -1,4 +1,4 @@
-package com.example.chessonline.data
+package com.example.chessonline.data.local
 
 import com.example.chessonline.Figure
 import com.example.chessonline.Position

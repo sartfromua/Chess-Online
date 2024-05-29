@@ -17,6 +17,7 @@ class PieSocketListener : WebSocketListener() {
 
     override fun onMessage(webSocket: WebSocket, text: String) {
         output("Received : $text")
+        output(webSocket.request().url.toString())
         this.messageLD.postValue(text)
         Log.d(TAG, "${this.messageLD.value}")
     }
@@ -36,6 +37,6 @@ class PieSocketListener : WebSocketListener() {
 
     companion object {
         private const val NORMAL_CLOSURE_STATUS = 1000
-        private const val TAG = "PieSocket"
+        private const val TAG = "ListenerPieSocket"
     }
 }

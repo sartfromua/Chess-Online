@@ -7,6 +7,7 @@ import com.example.chessonline.Position
 interface FigureRepository {
     suspend fun moveFigureTo(fromPos: Position, toPos: Position)
     suspend fun addFigure(figure: Figure)
+    suspend fun editFigure(figure: Figure)
     suspend fun getFiguresList(): LiveData<List<Figure>>
     suspend fun removeFigure(position: Position)
     suspend fun removeAllFigures()

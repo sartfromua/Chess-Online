@@ -7,9 +7,10 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.chessonline.Figure
 import com.example.chessonline.Position
-import com.example.chessonline.data.FigureDataBaseRepository
+import com.example.chessonline.data.local.FigureDataBaseRepository
 import com.example.chessonline.domain.usecase.AddFigure
 import com.example.chessonline.domain.usecase.AddFiguresList
+import com.example.chessonline.domain.usecase.EditFigure
 import com.example.chessonline.domain.usecase.GetFiguresList
 import com.example.chessonline.domain.usecase.MoveFigureTo
 import com.example.chessonline.domain.usecase.RemoveAllFigures
@@ -25,6 +26,7 @@ class FiguresViewModel(application: Application): AndroidViewModel(application) 
     private val removeFigureUseCase = RemoveFigure(repository)
     private val removeAllFiguresUseCase = RemoveAllFigures(repository)
     private val addFiguresListUseCase = AddFiguresList(repository)
+    private val editFigureUseCase = EditFigure(repository)
 
     private var _figuresListLD = MutableLiveData<List<Figure>>()
     val figuresListLD: LiveData<List<Figure>>
@@ -42,6 +44,20 @@ class FiguresViewModel(application: Application): AndroidViewModel(application) 
             moveFigureToUseCase.moveFigureTo(fromPosition, toPosition)
         }.invokeOnCompletion {
             getFiguresList()
+        }
+    }
+
+    fun editFigure(figure: Figure) {
+        viewModelScope.launch {
+            editFigureUseCase.editFigure(figure)
+        }.invokeOnCompletion {
+            getFiguresList()
+        }
+    }
+
+    fun removeFigure(position: Position) {
+        viewModelScope.launch {
+            removeFigureUseCase.removeFigure(position)
         }
     }
 

@@ -1,4 +1,4 @@
-package com.example.chessonline.data
+package com.example.chessonline.data.local
 
 import android.content.Context
 import android.util.Log
@@ -24,6 +24,12 @@ class FigureDataBaseRepository(context: Context): FigureRepository {
         dao.addFigure(EntityMapper.figureToEntity(figure))
     }
 
+    override suspend fun editFigure(figure: Figure) {
+        dao.removeFigure(figure.position.x, figure.position.y)
+        dao.addFigure(EntityMapper.figureToEntity(figure))
+//        dao.updateFigure(EntityMapper.figureToEntity(figure))
+    }
+
     override suspend fun getFiguresList(): LiveData<List<Figure>> {
 //        return MediatorLiveData<List<Figure>>().apply {
 //            addSource(dao.getFiguresList()) {
@@ -33,7 +39,11 @@ class FigureDataBaseRepository(context: Context): FigureRepository {
 //        return MediatorLiveData<List<Figure>>().apply {
 //            this.value = EntityMapper.entitiesToFigureList(dao.getFiguresList())
 //        }
-        Log.d("XXXXX", "Call to BD to get figureListLD: ${MediatorLiveData(EntityMapper.entitiesToFigureList(dao.getFiguresList())).value}")
+        Log.d("XXXXX", "Call to BD to get figureListLD: ${MediatorLiveData(
+            EntityMapper.entitiesToFigureList(
+                dao.getFiguresList()
+            )
+        ).value}")
         return MediatorLiveData(EntityMapper.entitiesToFigureList(dao.getFiguresList()))
     }
 

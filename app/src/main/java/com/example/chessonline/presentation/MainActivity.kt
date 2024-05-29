@@ -2,20 +2,23 @@ package com.example.chessonline.presentation
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.CountDownTimer
 import android.util.Log
 import androidx.lifecycle.ViewModelProvider
 import com.example.chessonline.BLACK_TEAM
-import com.example.chessonline.Figure
 import com.example.chessonline.Game
+import com.example.chessonline.Position
 import com.example.chessonline.WHITE_TEAM
 
 class MainActivity : AppCompatActivity() {
-//    private lateinit var binding: ActivityMainBinding
     private lateinit var board: BoardCanvas
     private lateinit var viewModel: FiguresViewModel
     private lateinit var webSocketViewModel: WebSocketViewModel
     private var game = Game(false, WHITE_TEAM, WHITE_TEAM)
-    private var figures: MutableList<Figure> = mutableListOf()
+    private val timeToLose = 300L
+    var timeWhite = timeToLose
+    var timeBlack = timeToLose
+    private lateinit var timer: CountDownTimer
 
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -25,22 +28,41 @@ class MainActivity : AppCompatActivity() {
         viewModel = ViewModelProvider(this)[FiguresViewModel::class.java]
         webSocketViewModel = ViewModelProvider(this)[WebSocketViewModel::class.java]
 
+
         // restart button OnClick
         board.gameRestartButton.observe(this) {
-//            viewModel.restartFigures(game.team)
-//            game.turn = WHITE_TEAM
-            game = Game(false, WHITE_TEAM, WHITE_TEAM, game.channel+1)
+            game = Game(false, WHITE_TEAM, WHITE_TEAM, game.channel)
+            board.check = ""
+            board.checkMate = ""
             lookForAGame()
+        }
+
+        board.chosenRoomLD.observe(this) {
+            game.channel = it
+            webSocketViewModel.setChannelId(game.channel)
         }
 
         // refreshing figures on board when changing them in DB
         viewModel.figuresListLD.observe(this) {
 //            Log.d("XXXXX", "Figures list: \n$it")
-            figures = it.toMutableList()
+            board.check = ""
             board.figures = it.toMutableList()
             board.team = game.team
             board.turn = game.turn
+
+            board.checkMateCheck()
             board.invalidate()
+        }
+
+        board.figurePromotion.observe(this) {
+            Log.d("XXXXX", "Promotion {$it}")
+            val figure = it.first
+            figure.name = it.second
+            viewModel.editFigure(figure)
+        }
+
+        board.gameOverLD.observe(this) {
+            if (it) timer.cancel()
         }
 
         // make a move in DB when figure on canvas moved
@@ -50,65 +72,137 @@ class MainActivity : AppCompatActivity() {
 
             val indChosen = board.getIndexFigureOnPos(chosenPos)
 
-            if (indChosen != null && board.canFigureGo(figures[indChosen], position)
-                && game.turn == figures[indChosen].team) {
-                Log.d("XXXX", "Move ${figures[indChosen]} to $position")
+            if (indChosen != null && board.canFigureGo(board.figures[indChosen], position)
+                && (game.turn == board.figures[indChosen].team || board.testMod)) {
+                Log.d("XXXX", "Move ${board.figures[indChosen]} to $position")
                 // Moving figure and deleting figure on pos if needed
+                if (board.pessant != 0) {
+                    viewModel.removeFigure(Position(position.x, position.y+board.pessant))
+                    webSocketViewModel.sendMessage("FALL ${position.x},${position.y+board.pessant}")
+                }
+
                 viewModel.moveFigureTo(chosenPos, position)
-                webSocketViewModel.sendMessage("MOVE ${chosenPos.x},${chosenPos.y} to ${position.x},${position.y}")
-                game.turn = if (game.turn == WHITE_TEAM) BLACK_TEAM else WHITE_TEAM
+                if (board.promotionCheck) return@observe
+                webSocketViewModel.sendMessage("MOVE ${chosenPos.x},${chosenPos.y} to ${position.x},${position.y}" +
+                        "\nTIME $timeWhite,$timeBlack")
+
+                if (game.turn == WHITE_TEAM) {
+                    game.turn = BLACK_TEAM
+                    timerStart(BLACK_TEAM, timeBlack)
+                } else {
+                    game.turn = WHITE_TEAM
+                    timerStart(WHITE_TEAM, timeWhite)
+                }
             }
         }
 
         // WebSocket commands processing
+        commandsProcessing()
+
+//        viewModel.getFiguresList()
+    }
+
+    private fun commandsProcessing() {
         webSocketViewModel.messageLd.observe(this) {
-//            Log.d("PieSocket", "MessageLd: $it")
             if (it == webSocketViewModel.lastMessage) {
                 webSocketViewModel.nextMessage()
                 return@observe
             }
+            Log.d("PieSocket", "Processing message: $it")
             if ("MOVE" in it) {
-                val pos = MessageParser.parseMoveMessage(it)
-                Log.d("PieSocket", "Parsed message: $pos")
-                viewModel.moveFigureTo(pos.first, pos.second)
-                game.turn = if (game.turn == WHITE_TEAM) BLACK_TEAM else WHITE_TEAM
+                val move = MessageParser.parseMoveMessage(it)
+                Log.d("PieSocket", "Parsed message: $move")
+                viewModel.moveFigureTo(move.fromPos, move.toPos)
+
+                timeWhite = move.whiteTimer
+                timeBlack = move.blackTimer
+                if (game.turn == WHITE_TEAM) {
+                    game.turn = BLACK_TEAM
+                    timerStart(BLACK_TEAM, timeBlack)
+                } else {
+                    game.turn = WHITE_TEAM
+                    timerStart(WHITE_TEAM, timeWhite)
+                }
+
+            }
+            if ("FALL" in it) {
+                val pos = MessageParser.parseFallMessage(it)
+                viewModel.removeFigure(pos)
             }
             if ("LOOKING FOR A GAME" in it) {
-                val channelId = MessageParser.parseLookingMessage(it)
-                if (channelId == game.channel && !game.started) {
-                    webSocketViewModel.sendMessage("START GAME in channel:$channelId")
-                } else webSocketViewModel.sendMessage("BUSY channel:$channelId")
+                if (!game.started) {
+                    webSocketViewModel.sendMessage("START GAME")
+                } else webSocketViewModel.sendMessage("BUSY")
             }
             if ("START GAME" in it) {
-                val channelId = MessageParser.parseLookingMessage(it)
-                if (channelId == game.channel && !game.started) {
+                if (board.waiting && !game.started) {
                     webSocketViewModel.sendMessage("YOU PLAY FOR BLACK")
                     game.started = true
+                    board.waiting = false
                     game.team = WHITE_TEAM
                     game.turn = WHITE_TEAM
                     viewModel.restartFigures(game.team)
+                    timerStart(WHITE_TEAM, timeWhite)
+                    board.invalidate()
                 }
             }
             if ("YOU PLAY FOR BLACK" in it) {
                 game.started = true
+                board.waiting = false
                 game.team = BLACK_TEAM
                 game.turn = WHITE_TEAM
                 viewModel.restartFigures(game.team)
+                timerStart(WHITE_TEAM, timeWhite)
+                board.invalidate()
             }
             if ("BUSY" in it) {
-                game.channel += 1
-                lookForAGame()
+                board.waiting = false
+                board.invalidate()
+            }
+        }
+    }
+
+    private fun timerStart(team: String, timeLeft: Long) {
+        if (this::timer.isInitialized) timer.cancel()
+        timer = object: CountDownTimer(timeLeft*1000, 1000) {
+            override fun onTick(millisUntilFinished: Long) {
+                if (team == WHITE_TEAM) {
+                    timeWhite = millisUntilFinished / 1000
+                    board.timerWhite = timeWhite
+                } else {
+                    timeBlack = millisUntilFinished / 1000
+                    board.timerBlack = timeBlack
+                }
+
+                board.invalidate()
+            }
+
+            override fun onFinish() {
+                Log.d("XXXXX", "END OF GAME")
+                if (timeWhite == 0L) board.timeGameOver = WHITE_TEAM
+                if (timeBlack == 0L) board.timeGameOver = BLACK_TEAM
             }
         }
 
-//        if (!game.started) {
-//            lookForAGame()
-//        }
+        timer.start()
 
-        viewModel.getFiguresList()
+
     }
 
     private fun lookForAGame() {
-        webSocketViewModel.sendMessage("LOOKING FOR A GAME in channel:${game.channel}")
+        webSocketViewModel.sendMessage("LOOKING FOR A GAME")
+        timeWhite = timeToLose
+        timeBlack = timeToLose
+        board.waiting = true
+        if (board.testMod) {
+            game.started = true
+            board.waiting = false
+            game.team = WHITE_TEAM
+            game.turn = WHITE_TEAM
+            viewModel.restartFigures(game.team)
+            timerStart(WHITE_TEAM, timeWhite)
+            board.invalidate()
+        }
+        board.invalidate()
     }
 }

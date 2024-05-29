@@ -1,4 +1,4 @@
-package com.example.chessonline.data
+package com.example.chessonline.data.local
 
 import androidx.room.ColumnInfo
 import androidx.room.Embedded

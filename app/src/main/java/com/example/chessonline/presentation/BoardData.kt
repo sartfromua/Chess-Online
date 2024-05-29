@@ -20,6 +20,26 @@ object BoardData {
         return Pair(startCoordinates, endCoordinates)
     }
 
+    fun getTimerCoordinates(xMax: Int, yMax: Int): Pair<Coordinates, Coordinates>{
+        val downCoordinates = Coordinates(xMax * 0.41F, (yMax/2 + xMax * 0.9/2 + yMax * 0.05F).toFloat())
+        val upCoordinates = Coordinates(xMax * 0.41F, yMax * 0.25F)
+        return Pair(downCoordinates, upCoordinates)
+    }
+
+    fun getMessageCoordinates(xMax: Int, yMax: Int): Coordinates{
+        val downCoordinates = Coordinates(xMax * 0.25F, (yMax/2 + xMax * 0.9/2 + yMax * 0.15F).toFloat())
+        return downCoordinates
+    }
+
+    fun getRoomsCoordinates(xMax: Int, yMax: Int):
+            Triple<Pair<Coordinates, Coordinates>, Pair<Coordinates, Coordinates>, Pair<Coordinates, Coordinates>> {
+        return Triple(
+            Pair(Coordinates(xMax * 0.025F, yMax * 0.92F), Coordinates(xMax * 0.325F, yMax * 0.985F)),
+            Pair(Coordinates(xMax * 0.35F, yMax * 0.92F), Coordinates(xMax * 0.65F, yMax * 0.985F)),
+            Pair(Coordinates(xMax * 0.675F, yMax * 0.92F), Coordinates(xMax * 0.975F, yMax * 0.985F)),
+        )
+    }
+
     fun getRestartButtonCoordinates(xMax: Int, yMax: Int): Pair<Coordinates, Coordinates> {
         val startCoordinates = Coordinates(xMax * 0.25F, yMax * 0.05F)
         val endCoordinates = Coordinates(xMax * 0.75F, yMax * 0.13F)
@@ -52,7 +72,10 @@ object BoardData {
         figures.add(Figure(BISHOP_NAME, BLACK_TEAM, Position(3, 8), id++))
         figures.add(Figure(BISHOP_NAME, BLACK_TEAM, Position(6, 8), id++))
         figures.add(Figure(QUEEN_NAME, BLACK_TEAM, Position(4, 8), id++))
-        figures.add(Figure(KING_NAME, BLACK_TEAM, Position(5, 8), id))
+        figures.add(Figure(KING_NAME, BLACK_TEAM, Position(5, 8), id++))
+
+        figures.remove(Figure(PAWN_NAME, BLACK_TEAM, Position(8,7), 24))
+        figures.add(Figure(PAWN_NAME, WHITE_TEAM, Position(8,7), id++))
 
         return figures
     }
