@@ -8,7 +8,7 @@ object EntityMapper {
         return FigureEntity(
             figure.name,
             figure.team,
-            PositionEntity(figure.position.x, figure.position.y)
+            PositionEntity(figure.pos.x, figure.pos.y)
         )
     }
 

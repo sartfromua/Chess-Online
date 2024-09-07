@@ -22,12 +22,17 @@ object BoardData {
 
     fun getTimerCoordinates(xMax: Int, yMax: Int): Pair<Coordinates, Coordinates>{
         val downCoordinates = Coordinates(xMax * 0.41F, (yMax/2 + xMax * 0.9/2 + yMax * 0.05F).toFloat())
-        val upCoordinates = Coordinates(xMax * 0.41F, yMax * 0.25F)
+        val upCoordinates = Coordinates(xMax * 0.41F, (yMax/2 - xMax * 0.9/2 - yMax * 0.025F).toFloat())
         return Pair(downCoordinates, upCoordinates)
     }
 
     fun getMessageCoordinates(xMax: Int, yMax: Int): Coordinates{
         val downCoordinates = Coordinates(xMax * 0.25F, (yMax/2 + xMax * 0.9/2 + yMax * 0.15F).toFloat())
+        return downCoordinates
+    }
+
+    fun getOfflineButtonCoordinates(xMax: Int, yMax: Int): Coordinates{
+        val downCoordinates = Coordinates(xMax * 0.82F, yMax*0.06F)
         return downCoordinates
     }
 
@@ -74,8 +79,8 @@ object BoardData {
         figures.add(Figure(QUEEN_NAME, BLACK_TEAM, Position(4, 8), id++))
         figures.add(Figure(KING_NAME, BLACK_TEAM, Position(5, 8), id++))
 
-        figures.remove(Figure(PAWN_NAME, BLACK_TEAM, Position(8,7), 24))
-        figures.add(Figure(PAWN_NAME, WHITE_TEAM, Position(8,7), id++))
+//        figures.remove(Figure(PAWN_NAME, BLACK_TEAM, Position(8,7), 24))
+//        figures.add(Figure(PAWN_NAME, WHITE_TEAM, Position(8,7), id++))
 
         return figures
     }

@@ -25,7 +25,7 @@ class FigureDataBaseRepository(context: Context): FigureRepository {
     }
 
     override suspend fun editFigure(figure: Figure) {
-        dao.removeFigure(figure.position.x, figure.position.y)
+        dao.removeFigure(figure.pos.x, figure.pos.y)
         dao.addFigure(EntityMapper.figureToEntity(figure))
 //        dao.updateFigure(EntityMapper.figureToEntity(figure))
     }

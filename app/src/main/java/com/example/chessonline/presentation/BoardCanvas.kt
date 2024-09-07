@@ -45,10 +45,11 @@ class BoardCanvas(context: Context?): View(context) {
     var gameOverLD = MutableLiveData<Boolean>(false)
     var timeGameOver = ""
     val chosenRoomLD = MutableLiveData<Int>(0)
+    var castling: Pair<Figure, Figure>? = null
     var pessant = 0
     var promotionCheck = false
     var figurePromotion = MutableLiveData<Pair<Figure, String>>()
-    val testMod = false
+    var testMod = false
 
     @SuppressLint("DrawAllocation")
     override fun onDraw(canvas: Canvas) {
@@ -88,6 +89,11 @@ class BoardCanvas(context: Context?): View(context) {
         if (event.x in restartButt.first.x..restartButt.second.x &&
             event.y in restartButt.first.y..restartButt.second.y)
             gameRestartButton.value = (gameRestartButton.value ?: true).xor(true)
+
+        val offlineButt = BoardData.getOfflineButtonCoordinates(width, height)
+        if (event.x in offlineButt.x..offlineButt.x+cellSize!! &&
+            event.y in offlineButt.y..offlineButt.y+cellSize!!)
+            testMod = !testMod
 
         if (gameOverLD.value == true) return super.onTouchEvent(event)
         if (!(turn == team || testMod)) return super.onTouchEvent(event)
@@ -147,7 +153,7 @@ class BoardCanvas(context: Context?): View(context) {
 
     fun getIndexFigureOnPos(position: Position): Int? {
         for (fig in figures) {
-            if (fig.position == position) {
+            if (fig.pos == position) {
 //                Log.d("XXXXX", "Figure on $position: ${figures[figures.indexOf(fig)]}")
                 return figures.indexOf(fig)
             }
@@ -176,6 +182,19 @@ class BoardCanvas(context: Context?): View(context) {
                 (coords2.x).toInt(), (coords2.y + (coords2.y - coords1.y)/2).toInt())
             drawable.draw(canvas)
         }
+
+        if (testMod) {
+            resId = context.resources.getIdentifier("pressed_button", "drawable", context.packageName)
+        } else {
+            resId = context.resources.getIdentifier("unpressed_button", "drawable", context.packageName)
+        }
+
+        val cordsBut = BoardData.getOfflineButtonCoordinates(width, height)
+        bitmap = BitmapFactory.decodeResource(resources, resId)
+        drawable = BitmapDrawable(resources, bitmap)
+        drawable.setBounds((cordsBut.x).toInt(), (cordsBut.y).toInt(),
+            (cordsBut.x + cellSize!!).toInt(), (cordsBut.y + cellSize!!).toInt())
+        drawable.draw(canvas)
 
     }
 
@@ -286,8 +305,8 @@ class BoardCanvas(context: Context?): View(context) {
 
         val bitmap = BitmapFactory.decodeResource(resources, resId)
         val drawable = BitmapDrawable(resources, bitmap)
-        var pos = figure.position
-        if (team == BLACK_TEAM) pos = Position(9 - figure.position.x,  9 - figure.position.y)
+        var pos = figure.pos.copy()
+        if (team == BLACK_TEAM) pos = Position(9 - figure.pos.x,  9 - figure.pos.y)
         val coordiantes: Coordinates = getCoordinates(pos)
         drawable.setBounds((coordiantes.x).toInt(), (coordiantes.y).toInt(),
             (coordiantes.x+cellSize!!).toInt(), (coordiantes.y+cellSize!!).toInt())
@@ -316,9 +335,9 @@ class BoardCanvas(context: Context?): View(context) {
         }
     }
 
-    fun canFigureGo(figure: Figure, pos: Position): Boolean {
+    fun canFigureGo(figure: Figure, pos: Position, ignoreTurn: Boolean = false): Boolean {
         pessant = 0
-        if (((figure.team != team || turn != team) && !testMod)) return false
+        if (((figure.team != team || turn != team) && !(testMod || ignoreTurn))) return false
 //        Log.d("XXX", "CanFigureGo: $figure to $pos")
 
         val index = getIndexFigureOnPos(pos)
@@ -334,108 +353,111 @@ class BoardCanvas(context: Context?): View(context) {
         when (figure.name) {
             PAWN_NAME -> {
                 // Attack
-                if (pos.y == figure.position.y + 1 && abs(pos.x - figure.position.x) == 1 &&
+                if (pos.y == figure.pos.y + 1 && abs(pos.x - figure.pos.x) == 1 &&
                     index != null && figure.team == WHITE_TEAM) return true
-                if (pos.y == figure.position.y - 1 && abs(pos.x - figure.position.x) == 1 &&
+                if (pos.y == figure.pos.y - 1 && abs(pos.x - figure.pos.x) == 1 &&
                     index != null && figure.team == BLACK_TEAM) return true
 
                 // en passant
-                if (figure.team == WHITE_TEAM && figure.position.y == 5 && index == null) {
+                if (figure.team == WHITE_TEAM && figure.pos.y == 5 && index == null) {
                     val ind = getIndexFigureOnPos(Position(pos.x, pos.y-1))
                     if (ind != null && figures[ind].name == PAWN_NAME && figures[ind].team != figure.team)
                         {pessant = -1; return true}
                 }
-                if (figure.team == BLACK_TEAM && figure.position.y == 4 && index == null) {
+                if (figure.team == BLACK_TEAM && figure.pos.y == 4 && index == null) {
                     val ind = getIndexFigureOnPos(Position(pos.x, pos.y+1))
                     if (ind != null && figures[ind].name == PAWN_NAME && figures[ind].team != figure.team)
                         {pessant = 1; return true}
                 }
 
                 // Move
-                if (pos.x == figure.position.x){
+                if (pos.x == figure.pos.x){
                     if (figure.team == WHITE_TEAM) {
-                        if (pos.y == figure.position.y + 1 && index == null) return true
-                        if (pos.y == figure.position.y + 2 && figure.position.y == 2 &&
+                        if (pos.y == figure.pos.y + 1 && index == null) return true
+                        if (pos.y == figure.pos.y + 2 && figure.pos.y == 2 &&
                             index == null &&
                             getIndexFigureOnPos(Position(pos.x, pos.y-1)) == null) return true
                     } else {
-                        if (pos.y == figure.position.y - 1 && getIndexFigureOnPos(pos) == null) return true
-                        if (pos.y == figure.position.y - 2 && figure.position.y == 7 &&
+                        if (pos.y == figure.pos.y - 1 && getIndexFigureOnPos(pos) == null) return true
+                        if (pos.y == figure.pos.y - 2 && figure.pos.y == 7 &&
                             index == null &&
                             getIndexFigureOnPos(Position(pos.x, pos.y+1)) == null) return true
                     }
                 }
             }
             HORSE_NAME -> {
-                if ((figure.position.x == pos.x + 1 || figure.position.x == pos.x - 1) &&
-                    (figure.position.y == pos.y + 2 || figure.position.y == pos.y - 2))
+                if ((figure.pos.x == pos.x + 1 || figure.pos.x == pos.x - 1) &&
+                    (figure.pos.y == pos.y + 2 || figure.pos.y == pos.y - 2))
                     return true
-                if ((figure.position.x == pos.x + 2 || figure.position.x == pos.x - 2) &&
-                    (figure.position.y == pos.y + 1 || figure.position.y == pos.y - 1))
+                if ((figure.pos.x == pos.x + 2 || figure.pos.x == pos.x - 2) &&
+                    (figure.pos.y == pos.y + 1 || figure.pos.y == pos.y - 1))
                     return true
             }
             ROOK_NAME -> {
-                if (figure.position.x == pos.x) {
-                    for (y in minOf(figure.position.y, pos.y)+1..<maxOf(figure.position.y, pos.y))
+                if (figure.pos.x == pos.x) {
+                    for (y in minOf(figure.pos.y, pos.y)+1..<maxOf(figure.pos.y, pos.y))
                         if (getIndexFigureOnPos(Position(pos.x, y)) != null) return false
                     return true
                 }
-                if (figure.position.y == pos.y) {
-                    for (x in minOf(figure.position.x, pos.x)+1..<maxOf(figure.position.x, pos.x))
+                if (figure.pos.y == pos.y) {
+                    for (x in minOf(figure.pos.x, pos.x)+1..<maxOf(figure.pos.x, pos.x))
                         if (getIndexFigureOnPos(Position(x, pos.y)) != null) return false
                     return true
                 }
             }
             BISHOP_NAME -> {
-                if (abs(figure.position.x - pos.x) == abs(figure.position.y - pos.y)) {
-                    val dx = sign((pos.x - figure.position.x).toDouble()).toInt()
-                    val dy = sign((pos.y - figure.position.y).toDouble()).toInt()
-                    for (i in 1..<abs(pos.x - figure.position.x))
-                        if (getIndexFigureOnPos(Position(figure.position.x + i*dx, figure.position.y + i*dy)) != null)
+                if (abs(figure.pos.x - pos.x) == abs(figure.pos.y - pos.y)) {
+                    val dx = sign((pos.x - figure.pos.x).toDouble()).toInt()
+                    val dy = sign((pos.y - figure.pos.y).toDouble()).toInt()
+                    for (i in 1..<abs(pos.x - figure.pos.x))
+                        if (getIndexFigureOnPos(Position(figure.pos.x + i*dx, figure.pos.y + i*dy)) != null)
                             return false
                     return true
                 }
             }
             KING_NAME -> {
-                if (abs(figure.position.x - pos.x) <= 1 && abs(figure.position.y - pos.y) <= 1){
-                    val ind = getIndexFigureOnPos(pos)
-                    if (ind != null) {
-                        if (figure.team != figures[ind].team) return true
-                        if (figures[ind].name == ROOK_NAME) {
-                            if (figure.team == WHITE_TEAM && figures[ind].position.y == 1 &&
-                                (figures[ind].position.x == 1 || figures[ind].position.x == 8))
-                                if (figure.position == Position(5, 1)) {
-                                    for (x in minOf(figure.position.x, pos.x)+1..<maxOf(figure.position.x, pos.x))
-                                        if (getIndexFigureOnPos(Position(x, pos.y)) != null) return false
-                                    return true
-                                }
-                            if (figure.team == BLACK_TEAM && figures[ind].position.y == 8 &&
-                                (figures[ind].position.x == 1 || figures[ind].position.x == 8))
-                                if (figure.position == Position(5, 8)) {
-                                    for (x in minOf(figure.position.x, pos.x)+1..<maxOf(figure.position.x, pos.x))
-                                        if (getIndexFigureOnPos(Position(x, pos.y)) != null) return false
-                                    return true
-                                }
+                val ind = getIndexFigureOnPos(pos)
+                if (abs(figure.pos.x - pos.x) <= 1 && abs(figure.pos.y - pos.y) <= 1) {
+                    if (ind == null || figure.team != figures[ind].team) return true
+                } else {
+                    if (ind == null) return false
+                    // castling
+                    if (figures[ind].name != ROOK_NAME) return false
+
+                    if (figure.team == WHITE_TEAM && figures[ind].pos.y == 1 &&
+                        (figures[ind].pos.x == 1 || figures[ind].pos.x == 8)) {
+                        if (figure.pos == Position(5, 1)) {
+                            for (x in minOf(figure.pos.x, pos.x)+1..<maxOf(figure.pos.x, pos.x))
+                                if (getIndexFigureOnPos(Position(x, pos.y)) != null) return false
+                            castling = Pair(figure, figures[ind])
+                            return true
                         }
-                    } else return true
+                    }
+                    if (figure.team == BLACK_TEAM && figures[ind].pos.y == 8 &&
+                        (figures[ind].pos.x == 1 || figures[ind].pos.x == 8))
+                        if (figure.pos == Position(5, 8)) {
+                            for (x in minOf(figure.pos.x, pos.x)+1..<maxOf(figure.pos.x, pos.x))
+                                if (getIndexFigureOnPos(Position(x, pos.y)) != null) return false
+                            castling = Pair(figure, figures[ind])
+                            return true
+                        }
                 }
             }
             QUEEN_NAME -> {
-                if (abs(figure.position.x - pos.x) == abs(figure.position.y - pos.y)) {
-                    val dx = sign((pos.x - figure.position.x).toDouble()).toInt()
-                    val dy = sign((pos.y - figure.position.y).toDouble()).toInt()
-                    for (i in 1..<abs(pos.x - figure.position.x))
-                        if (getIndexFigureOnPos(Position(figure.position.x + i*dx, figure.position.y + i*dy)) != null)
-                            return false
+                if (abs(figure.pos.x - pos.x) == abs(figure.pos.y - pos.y)) {
+                    val dx = sign((pos.x - figure.pos.x).toDouble()).toInt()
+                    val dy = sign((pos.y - figure.pos.y).toDouble()).toInt()
+                    for (i in 1..<abs(pos.x - figure.pos.x))
+                        if (getIndexFigureOnPos(Position(figure.pos.x + i*dx, figure.pos.y + i*dy)) != null) return false
                     return true
                 }
-                if (figure.position.x == pos.x) {
-                    for (y in minOf(figure.position.y, pos.y)+1..<maxOf(figure.position.y, pos.y))
+                if (figure.pos.x == pos.x) {
+                    for (y in minOf(figure.pos.y, pos.y)+1..<maxOf(figure.pos.y, pos.y))
                         if (getIndexFigureOnPos(Position(pos.x, y)) != null) return false
                     return true
                 }
-                if (figure.position.y == pos.y) {
-                    for (x in minOf(figure.position.x, pos.x)+1..<maxOf(figure.position.x, pos.x))
+                if (figure.pos.y == pos.y) {
+                    for (x in minOf(figure.pos.x, pos.x)+1..<maxOf(figure.pos.x, pos.x))
                         if (getIndexFigureOnPos(Position(x, pos.y)) != null) return false
                     return true
                 }
@@ -444,12 +466,12 @@ class BoardCanvas(context: Context?): View(context) {
         return false
     }
 
-    fun promotionCheck(position: Position): Boolean {
+    private fun promotionCheck(position: Position): Boolean {
         val index = getIndexFigureOnPos(position) ?: return false
         val figure = figures[index]
-        if (figure.name != PAWN_NAME) return false
-        if (figure.team == WHITE_TEAM && figure.position.y == 8) return true
-        if (figure.team == BLACK_TEAM && figure.position.y == 1) return true
+        if (figure.name != PAWN_NAME || turn != figure.team) return false
+        if (figure.team == WHITE_TEAM && figure.pos.y == 8) return true
+        if (figure.team == BLACK_TEAM && figure.pos.y == 1) return true
         return false
     }
 
@@ -461,7 +483,7 @@ class BoardCanvas(context: Context?): View(context) {
         if (king == null) return false
         for (figure in figures) {
             if (figure.team != king.team) {
-                if (canFigureGo(figure, king.position)) {
+                if (canFigureGo(figure, king.pos, ignoreTurn = true)) {
                     Log.d(TAG, "Check to $king")
                     return true
                 }
@@ -482,11 +504,11 @@ class BoardCanvas(context: Context?): View(context) {
         if (check != team) return false
         for (figure in figures) {
             if (figure.team != king.team) {
-                if (canFigureGo(figure, king.position)) {
+                if (canFigureGo(figure, king.pos, ignoreTurn = true)) {
                     var posDanger = true
                     for (fig in figures)
                         if (fig.team != figure.team)
-                            if (canFigureGo(fig, figure.position)) {
+                            if (canFigureGo(fig, figure.pos, ignoreTurn = true)) {
                                 // if fig can beat figure and make cell safe again
                                 posDanger = false
                             }
@@ -500,12 +522,12 @@ class BoardCanvas(context: Context?): View(context) {
             var safePos = true
             for (figure in figures) {
                 if (figure.team != king.team) {
-                    if (canFigureGo(figure, pos)) {
+                    if (canFigureGo(figure, pos, ignoreTurn = true)) {
                         // if cell is in danger from figure
                         var posDanger = true
                         for (fig in figures)
                             if (fig.team != figure.team)
-                                if (canFigureGo(fig, figure.position)) {
+                                if (canFigureGo(fig, figure.pos, ignoreTurn = true)) {
                                     // if fig can beat figure and make cell safe again
                                     posDanger = false
                                 }
@@ -530,7 +552,7 @@ class BoardCanvas(context: Context?): View(context) {
             if (checkMate(BLACK_TEAM)) checkMate = BLACK_TEAM
         }
 
-        Log.d("YYYYY", "$check | $checkMate")
+        Log.d("YYYYY", "Check: '$check' | CheckMate: '$checkMate'")
     }
 
     private fun gameEndCheck(canvas: Canvas) {
@@ -568,8 +590,8 @@ class BoardCanvas(context: Context?): View(context) {
         val attackColor = "#FF3333"
         val castlingColor = "#B8860B"
 
-        val x = figure.position.x
-        val y = figure.position.y
+        val x = figure.pos.x
+        val y = figure.pos.y
 
         when (figure.name) {
             PAWN_NAME -> {
@@ -577,7 +599,7 @@ class BoardCanvas(context: Context?): View(context) {
                     if (getIndexFigureOnPos(Position(x, y+1)) == null && y<=7) moves.add(Pair(Position(x, y+1), moveColor))
                     if (getIndexFigureOnPos(Position(x, y+1)) == null &&
                         getIndexFigureOnPos(Position(x, y+2)) == null &&
-                        figure.position.y == 2) moves.add(Pair(Position(x, y+2), moveColor))
+                        figure.pos.y == 2) moves.add(Pair(Position(x, y+2), moveColor))
 
                     if (getIndexFigureOnPos(Position(x+1, y+1)) != null)
                         if (figures[getIndexFigureOnPos(Position(x+1, y+1))!!].team != figure.team)
@@ -586,7 +608,7 @@ class BoardCanvas(context: Context?): View(context) {
                         if (figures[getIndexFigureOnPos(Position(x-1, y+1))!!].team != figure.team)
                             moves.add(Pair(Position(x-1, y+1), attackColor))
 
-                    if (figure.position.y == 5) {
+                    if (figure.pos.y == 5) {
                         for (dx in listOf(-1, 1)) {
                             val ind = getIndexFigureOnPos(Position(x + dx, y))
                             if (ind != null && figures[ind].name == PAWN_NAME && figures[ind].team != figure.team
@@ -600,7 +622,7 @@ class BoardCanvas(context: Context?): View(context) {
                     if (getIndexFigureOnPos(Position(x, y-1)) == null && y>=2) moves.add(Pair(Position(x, y-1), moveColor))
                     if (getIndexFigureOnPos(Position(x, y-1)) == null &&
                         getIndexFigureOnPos(Position(x, y-2)) == null &&
-                        figure.position.y == 7) moves.add(Pair(Position(x, y-2), moveColor))
+                        figure.pos.y == 7) moves.add(Pair(Position(x, y-2), moveColor))
                     if (getIndexFigureOnPos(Position(x+1, y-1)) != null)
                         if (figures[getIndexFigureOnPos(Position(x+1, y-1))!!].team != figure.team)
                             moves.add(Pair(Position(x+1, y-1), attackColor))
@@ -608,7 +630,7 @@ class BoardCanvas(context: Context?): View(context) {
                         if (figures[getIndexFigureOnPos(Position(x-1, y-1))!!].team != figure.team)
                             moves.add(Pair(Position(x-1, y-1), attackColor))
 
-                    if (figure.position.y == 4) {
+                    if (figure.pos.y == 4) {
                         for (dx in listOf(-1, 1)) {
                             val ind = getIndexFigureOnPos(Position(x + dx, y))
                             if (ind != null && figures[ind].name == PAWN_NAME && figures[ind].team != figure.team
@@ -719,26 +741,26 @@ class BoardCanvas(context: Context?): View(context) {
                 val positions = listOf<Position>(Position(1,1),Position(1,8),
                     Position(8,1),Position(8,8))
                 for (pos in positions) {
-                    val index = getIndexFigureOnPos(pos)
-                    if (index != null)
-                        if (figures[index].name == ROOK_NAME) {
-                            if (figure.team == WHITE_TEAM && figures[index].position.y == 1 &&
-                                (figures[index].position.x == 1 || figures[index].position.x == 8))
-                                if (figure.position == Position(5, 1)) {
-                                    var clear = true
-                                    for (dx in minOf(figure.position.x, pos.x) + 1..<maxOf(figure.position.x, pos.x))
-                                        if (getIndexFigureOnPos(Position(dx, pos.y)) != null) clear = false
-                                    if (clear) moves.add(Pair(pos, castlingColor))
-                                }
-                            if (figure.team == BLACK_TEAM && figures[index].position.y == 8 &&
-                                (figures[index].position.x == 1 || figures[index].position.x == 8)
-                            )
-                                if (figure.position == Position(5, 8)) {
-                                    var clear = true
-                                    for (dx in minOf(figure.position.x, pos.x) + 1..<maxOf(figure.position.x, pos.x))
-                                        if (getIndexFigureOnPos(Position(dx, pos.y)) != null) clear = false
-                                    if (clear) moves.add(Pair(pos, castlingColor))
-                                }
+                    val index = getIndexFigureOnPos(pos) ?: continue
+                    // castling
+                    if (figures[index].name != ROOK_NAME) continue
+                    if (figure.team == WHITE_TEAM && figures[index].pos.y == 1 &&
+                        (figures[index].pos.x == 1 || figures[index].pos.x == 8))
+                            if (figure.pos == Position(5, 1)) {
+                                var clear = true
+                                for (dx in minOf(figure.pos.x, pos.x) + 1..<maxOf(figure.pos.x, pos.x))
+                                    if (getIndexFigureOnPos(Position(dx, pos.y)) != null) clear = false
+                                if (clear) moves.add(Pair(pos, castlingColor))
+                            }
+
+                    if (figure.team == BLACK_TEAM && figures[index].pos.y == 8 &&
+                        (figures[index].pos.x == 1 || figures[index].pos.x == 8)
+                    )
+                        if (figure.pos == Position(5, 8)) {
+                            var clear = true
+                            for (dx in minOf(figure.pos.x, pos.x) + 1..<maxOf(figure.pos.x, pos.x))
+                                if (getIndexFigureOnPos(Position(dx, pos.y)) != null) clear = false
+                            if (clear) moves.add(Pair(pos, castlingColor))
                         }
                 }
             }
